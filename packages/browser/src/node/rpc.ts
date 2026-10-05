@@ -19,7 +19,7 @@ import {
   ManualMockedModule,
   RedirectedModule,
 } from '@vitest/mocker'
-import { ServerMockResolver } from '@vitest/mocker/node'
+import { collectServedModuleExports, ServerMockResolver } from '@vitest/mocker/node'
 import { evaluateSnapshotFile } from '@vitest/snapshot/environment'
 import { extractSourcemapFromFile } from '@vitest/utils/source-map/node'
 import { createBirpc } from 'birpc'
@@ -461,6 +461,17 @@ export function setupBrowserRpc(
         },
 
         async registerMock(sessionId, module) {
+          // the browser links imports by name, so keep the exports the factory omits
+          const resolveManualMockExports = async () => {
+            const [{ keys }, originalKeys = []] = await Promise.all([
+              rpc.resolveManualMock(module.url),
+              collectServedModuleExports(vite.environments.client, module.url),
+            ])
+            return Object.fromEntries(
+              Array.from(new Set([...originalKeys, ...keys]), (key) => [key, null]),
+            )
+          }
+
           if (!mocker) {
             // make sure modules are not processed yet in case they were imported before
             // and were not mocked
@@ -469,8 +480,7 @@ export function setupBrowserRpc(
             if (module.type === 'manual') {
               const mock = ManualMockedModule.fromJSON(module, async () => {
                 try {
-                  const { keys } = await rpc.resolveManualMock(module.url)
-                  return Object.fromEntries(keys.map((key) => [key, null]))
+                  return await resolveManualMockExports()
                 } catch (err) {
                   vitest.state.catchError(err, 'Manual Mock Resolver Error')
                   return {}
@@ -490,10 +500,7 @@ export function setupBrowserRpc(
           }
 
           if (module.type === 'manual') {
-            const manualModule = ManualMockedModule.fromJSON(module, async () => {
-              const { keys } = await rpc.resolveManualMock(module.url)
-              return Object.fromEntries(keys.map((key) => [key, null]))
-            })
+            const manualModule = ManualMockedModule.fromJSON(module, resolveManualMockExports)
             await mocker.register(sessionId, manualModule)
           } else if (module.type === 'redirect') {
             await mocker.register(sessionId, RedirectedModule.fromJSON(module))

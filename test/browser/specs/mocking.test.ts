@@ -23,6 +23,7 @@ test.each([true /* , false */])('mocking works correctly - isolated %s', async (
     expect(result.stdout).toReportPassedTest('mocked-__mocks__.test.ts', browser)
     expect(result.stdout).toReportPassedTest('mocked-factory.test.ts', browser)
     expect(result.stdout).toReportPassedTest('mocked-factory-hoisted.test.ts', browser)
+    expect(result.stdout).toReportPassedTest('mocked-factory-partial.test.ts', browser)
     expect(result.stdout).toReportPassedTest('not-mocked.test.ts', browser)
     expect(result.stdout).toReportPassedTest('mocked-nested.test.ts', browser)
     expect(result.stdout).toReportPassedTest('not-mocked-nested.test.ts', browser)
